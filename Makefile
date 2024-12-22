@@ -11,9 +11,7 @@ endif
 
 # User Variables
 # -----------------------------------------------------------------------------
-PERSONAL_ACCESS_TOKEN_NAME := $(GITLAB_PERSONAL_ACCESS_TOKEN_NAME)
-PERSONAL_ACCESS_TOKEN      := $(GITLAB_PERSONAL_ACCESS_TOKEN)
-DYNATRACE_COMMON_LIB_CI_PROJECT_ID := 58370197
+GITLAB_TOKEN := $(GITLAB_PERSONAL_ACCESS_TOKEN_NAME)
 
 # Colored Output
 # -----------------------------------------------------------------------------
