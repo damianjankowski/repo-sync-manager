@@ -11,7 +11,7 @@ endif
 
 # User Variables
 # -----------------------------------------------------------------------------
-GITLAB_TOKEN := $(GITLAB_PERSONAL_ACCESS_TOKEN_NAME)
+GITLAB_TOKEN := ${GITLAB_TOKEN}
 
 # Colored Output
 # -----------------------------------------------------------------------------
@@ -34,12 +34,13 @@ ifeq ($(shell command -v pip3),)
 else
     PIP_CMD := pip3
 endif
+
 LOAD_ENV_SCRIPT := ./load_env.sh
 
 # Application Configuration
 # -----------------------------------------------------------------------------
-MAIN            := main.py
-REQUIREMENTS_DEV    := requirements.txt
+MAIN             := main.py
+REQUIREMENTS_DEV := requirements.txt
 
 # Default Goal
 # -----------------------------------------------------------------------------
@@ -61,37 +62,37 @@ help:  ## Display this help.
 # -----------------------------------------------------------------------------
 .PHONY: venv
 venv: ## Create a virtual environment.
-	@echo "${COLOR_BLUE}Upgrading pip...${COLOR_RESET}"
+	@echo -e "${COLOR_GREEN}Upgrading pip...${COLOR_RESET}"
 	$(PIP_CMD) install --upgrade pip
-	@echo "${COLOR_BLUE}Configuring virtual environments in project...${COLOR_RESET}"
+	@echo -e "${COLOR_GREEN}Configuring virtual environments in project...${COLOR_RESET}"
 	@$(PYTHON) -m venv .venv
 
 .PHONY: install
 install: venv ## Install dependencies.
-	@echo "${COLOR_BLUE}Installing dependencies from requirements-dev.txt...${COLOR_RESET}"
+	@echo -e "${COLOR_GREEN}Installing dependencies from requirements-dev.txt...${COLOR_RESET}"
 	$(PYTHON) -m pip install -r $(REQUIREMENTS_DEV)
 
 .PHONY: clean
 clean: ## Clean environment by removing specific files and directories.
-	@echo "${COLOR_RED}Removing all directories starting with 'kitchen_event_processor'...${COLOR_RESET}"
+	@echo -e "${COLOR_RED}Removing all directories starting with 'kitchen_event_processor'...${COLOR_RESET}"
 	@find . -name 'kitchen_event_processor*' -type d -exec rm -rf {} +
-	@echo "${COLOR_RED}Removing Python cache files...${COLOR_RESET}"
+	@echo -e "${COLOR_RED}Removing Python cache files...${COLOR_RESET}"
 	@find . -name '*.pyc' -exec rm -rf {} +
 	@find . -name '__pycache__' -exec rm -rf {} +
-	@echo "${COLOR_RED}Removing other unwanted files...${COLOR_RESET}"
+	@echo -e "${COLOR_RED}Removing other unwanted files...${COLOR_RESET}"
 	@find . -name 'Thumbs.db' -exec rm -rf {} +
 	@find . -name '*~' -exec rm -rf {} +
-	@echo "${COLOR_RED}Removing build artifacts and caches...${COLOR_RESET}"
+	@echo -e "${COLOR_RED}Removing build artifacts and caches...${COLOR_RESET}"
 	@rm -rf .cache build dist *.egg-info htmlcov .tox/ docs/_build
 
 .PHONY: pre-commit
 pre-commit: ## Run pre-commit checks on all files.
-	@echo "${COLOR_RED}Running pre-commit checks...${COLOR_RESET}"
+	@echo -e "${COLOR_RED}Running pre-commit checks...${COLOR_RESET}"
 	pre-commit run --all-files
 
-##@ Development
+##@ Ops
 # -----------------------------------------------------------------------------
 .PHONY: sync
 sync: ## Sync GitLab group repositories with the local machine.
-	@echo "${COLOR_BLUE}Syncing GitLab group repositories...${COLOR_RESET}"
+	@echo -e "${COLOR_GREEN}Syncing GitLab group repositories...${COLOR_RESET}"
 	$(PYTHON) $(MAIN) --group_id $(GROUP_ID) --base_directory $(BASE_DIRECTORY) --group_directory $(GROUP_DIRECTORY) --include_directories $(INCLUDE)
