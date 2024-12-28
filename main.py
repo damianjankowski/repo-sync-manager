@@ -51,7 +51,7 @@ class GitLabRepoCleaner:
     @staticmethod
     def parse_arguments() -> argparse.Namespace:
         parser = argparse.ArgumentParser(
-            description="Cleans local Git repositories by synchronizing with GitLab."
+            description="Cleans or updates local Git repositories by synchronizing with GitLab."
         )
         parser.add_argument(
             "--group_id",
@@ -69,8 +69,7 @@ class GitLabRepoCleaner:
             "--group_directory",
             type=Path,
             default=None,
-            help="Path to the GitLab group directory (if \
-                different from base_directory/group_id)",
+            help="Path to GitLab group directory (if different from base_directory/group_id)",
         )
         parser.add_argument(
             "--include_directories",
@@ -86,6 +85,11 @@ class GitLabRepoCleaner:
             "--dry_run",
             action="store_true",
             help="Simulate delete operations without actually performing them",
+        )
+        parser.add_argument(
+            "--update",
+            action="store_true",
+            help="Update all Git repositories in the base_directory",
         )
         return parser.parse_args()
 
@@ -116,7 +120,65 @@ class GitLabRepoCleaner:
             logging.error(f"Error while executing command {' '.join(cmd)}: {e}")
             raise
 
-    def get_json_response(self, url: str, params: Optional[Dict[str, str]] = None) -> List[Dict]:
+    def update_git_repositories(self) -> None:
+        logging.info("Updating all Git repositories in the base_directory...")
+        for root, dirs, _ in os.walk(self.group_directory):
+            for directory in dirs:
+                repo_path = Path(root) / directory
+                if self.is_git_repo(repo_path):
+                    self.update_git_repo(repo_path)
+
+    @staticmethod
+    def is_git_repo(path: Path) -> bool:
+        return (path / ".git").is_dir()
+
+    def get_default_branch(self, repo_path: Path) -> str:
+        try:
+            default_branch = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
+                    cwd=repo_path,
+                    text=True,
+                )
+                .strip()
+                .replace("origin/", "")
+            )
+            logging.info(f"Default branch for {repo_path}: {default_branch}")
+            return default_branch
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to determine default branch for {repo_path}: {e}")
+            raise RuntimeError(f"Cannot determine default branch for {repo_path}")
+
+    def update_git_repo(self, repo_path: Path) -> None:
+        logging.info(f"Processing repository: {repo_path}")
+        try:
+            current_branch = subprocess.check_output(
+                ["git", "branch", "--show-current"], cwd=repo_path, text=True
+            ).strip()
+
+            if not current_branch:
+                logging.warning(f"Repository {repo_path} is in a detached HEAD state.")
+
+            default_branch = self.get_default_branch(repo_path=repo_path)
+
+            subprocess.run(["git", "checkout", default_branch], cwd=repo_path, check=True)
+            logging.info(f"Checked out default branch: {default_branch}")
+
+            subprocess.run(["git", "pull"], cwd=repo_path, check=True)
+            logging.info(f"Pulled latest changes for {repo_path}")
+
+            if current_branch:
+                subprocess.run(["git", "checkout", current_branch], cwd=repo_path, check=True)
+                logging.info(f"Switched back to branch: {current_branch}")
+
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to update repository {repo_path}: {e}")
+        except RuntimeError as e:
+            logging.error(f"Error during update of {repo_path}: {e}")
+
+    def get_json_response(
+        self, url: str, params: Optional[Dict[str, str]] | Optional[Dict[str, bool]] = None
+    ) -> List[Dict]:
         results = []
         page = 1
         while True:
@@ -262,7 +324,7 @@ class GitLabRepoCleaner:
             logging.info(f"Repository to delete: {repo} (not found on GitLab)")
         return repos_to_delete
 
-    def clean_repositories(self) -> None:
+    def get_repositories(self) -> None:
         self.clone_group_repositories()
         gitlab_repositories = self.fetch_gitlab_repositories()
         local_git_repos = self.find_local_git_repos()
@@ -270,30 +332,20 @@ class GitLabRepoCleaner:
             f"Found {len(local_git_repos)} local Git repositories in the group directory."
         )
         gitlab_repo_absolute_paths = self.map_gitlab_repos_to_absolute_paths(gitlab_repositories)
-        logging.info("\nGitLab repositories (absolute paths):")
-        for repo in gitlab_repo_absolute_paths:
-            logging.info(repo)
-        logging.info("\nLocal repositories:")
-        for repo in local_git_repos.keys():
-            logging.info(repo)
         repos_to_delete = self.identify_repos_to_delete(
             local_git_repos, gitlab_repo_absolute_paths
         )
         self.delete_directories(repos_to_delete, "repositories")
         user_directories = self.get_user_directories()
-        logging.info(f"Found {len(user_directories)} user directories to delete.")
         self.delete_directories(user_directories, "user directories")
         if self.include_directories:
-            logging.info(
-                f"Including additional directories for deletion: {self.include_directories}"
-            )
             self.delete_directories(self.include_directories, "additional directories")
 
 
 def main() -> None:
     args = GitLabRepoCleaner.parse_arguments()
     GitLabRepoCleaner.setup_logging()
-    cleaner = GitLabRepoCleaner(
+    manager = GitLabRepoCleaner(
         group_id=args.group_id,
         base_directory=args.base_directory,
         group_directory=args.group_directory,
@@ -301,14 +353,17 @@ def main() -> None:
         force=args.force,
         dry_run=args.dry_run,
     )
-    logging.info(f"Base directory: {cleaner.base_directory}")
-    logging.info(f"Group directory: {cleaner.group_directory}")
-    logging.info(f"Force delete: {'Enabled' if cleaner.force else 'Disabled'}")
-    logging.info(f"Dry run: {'Enabled' if cleaner.dry_run else 'Disabled'}")
+    logging.info(f"Base directory: {manager.base_directory}")
+    logging.info(f"Group directory: {manager.group_directory}")
+    logging.info(f"Force delete: {'Enabled' if manager.force else 'Disabled'}")
+    logging.info(f"Dry run: {'Enabled' if manager.dry_run else 'Disabled'}")
     try:
-        cleaner.clean_repositories()
+        if args.update:
+            manager.update_git_repositories()
+        else:
+            manager.get_repositories()
     except Exception as e:
-        logging.error(f"Repository cleaning process failed: {e}")
+        logging.error(f"Process failed: {e}")
 
 
 if __name__ == "__main__":

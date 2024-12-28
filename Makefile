@@ -95,3 +95,8 @@ pre-commit: ## Run pre-commit checks on all files.
 sync: ## Sync GitLab group repositories with the local machine.
 	@echo "${COLOR_BLUE}Syncing GitLab group repositories...${COLOR_RESET}"
 	$(PYTHON) $(MAIN) --group_id $(GROUP_ID) --base_directory $(BASE_DIRECTORY) --group_directory $(GROUP_DIRECTORY) --include_directories $(INCLUDE)
+
+.PHONY: update
+update: ## Updating GitLab group repositories.
+	@echo "${COLOR_BLUE}Updating (pulling) GitLab group repositories...${COLOR_RESET}"
+	$(PYTHON) $(MAIN) --update --group_directory $(GROUP_DIRECTORY)

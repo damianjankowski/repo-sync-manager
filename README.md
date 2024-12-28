@@ -8,6 +8,7 @@ GitLabRepoSync is a tool for synchronizing local Git repositories with their rem
 - Automatically clone new repositories
 - Delete local repositories that do not exist on GitLab
 - Support for additional directories to delete
+- Update existing repositories to the latest state from the remote
 
 ## Installation
 
@@ -34,7 +35,8 @@ python gitlab_repo_sync.py \
     --group_directory /Users/user.user/repository/kitopi-com \
     --include_directories dir1 dir2 \
     --force \
-    --dry_run
+    --dry_run \
+    --update
 ```
 
 ### Parameters
@@ -45,3 +47,4 @@ python gitlab_repo_sync.py \
 - `--include_directories`: Additional folders to delete (space-separated paths).
 - `--force`: Delete directories without user confirmation.
 - `--dry_run`: Simulate delete operations without actually performing them.
+- `--update`: Update all Git repositories in the --base_directory to their latest state from the remote.
